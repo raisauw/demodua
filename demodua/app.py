@@ -19,7 +19,7 @@ class Student(db.Model):
 
 @app.route('/')
 def index():
-    # RAW Query
+    # RAW Query (aman karena hanya SELECT, tapi tetap bisa diperbaiki)
     students = db.session.execute(text('SELECT * FROM student')).fetchall()
     return render_template('index.html', students=students)
 
@@ -28,29 +28,35 @@ def add_student():
     name = request.form['name']
     age = request.form['age']
     grade = request.form['grade']
-    
 
-    connection = sqlite3.connect('instance/students.db')
-    cursor = connection.cursor()
+    # SIMPLE VALIDATION (optional)
+    if not age.isdigit():
+        return "Invalid age value", 400
 
-    # RAW Query
-    # db.session.execute(
-    #     text("INSERT INTO student (name, age, grade) VALUES (:name, :age, :grade)"),
-    #     {'name': name, 'age': age, 'grade': grade}
-    # )
-    # db.session.commit()
-    query = f"INSERT INTO student (name, age, grade) VALUES ('{name}', {age}, '{grade}')"
-    cursor.execute(query)
-    connection.commit()
-    connection.close()
+    # FIXED: gunakan SQLAlchemy parameterized query
+    db.session.execute(
+        text("INSERT INTO student (name, age, grade) VALUES (:name, :age, :grade)"),  # FIXED
+        {"name": name, "age": int(age), "grade": grade}  # FIXED
+    )
+    db.session.commit()  # FIXED
+
     return redirect(url_for('index'))
 
 
 @app.route('/delete/<string:id>') 
 def delete_student(id):
-    # RAW Query
-    db.session.execute(text(f"DELETE FROM student WHERE id={id}"))
-    db.session.commit()
+
+    # VALIDATION: id harus angka
+    if not id.isdigit():
+        return "Invalid ID", 400
+
+    # FIXED: hapus f-string, ganti parameterized query
+    db.session.execute(
+        text("DELETE FROM student WHERE id = :id"),  # FIXED
+        {"id": int(id)}  # FIXED
+    )
+    db.session.commit()  # FIXED
+
     return redirect(url_for('index'))
 
 
@@ -60,22 +66,29 @@ def edit_student(id):
         name = request.form['name']
         age = request.form['age']
         grade = request.form['grade']
-        
-        # RAW Query
-        db.session.execute(text(f"UPDATE student SET name='{name}', age={age}, grade='{grade}' WHERE id={id}"))
-        db.session.commit()
+
+        if not age.isdigit():
+            return "Invalid age", 400
+
+        # FIXED: gunakan parameterized query
+        db.session.execute(
+            text("UPDATE student SET name = :name, age = :age, grade = :grade WHERE id = :id"),  # FIXED
+            {"name": name, "age": int(age), "grade": grade, "id": id}  # FIXED
+        )
+        db.session.commit()  # FIXED
+
         return redirect(url_for('index'))
+
     else:
-        # RAW Query
-        student = db.session.execute(text(f"SELECT * FROM student WHERE id={id}")).fetchone()
+        # FIXED: SELECT juga dibuat parameterized
+        student = db.session.execute(
+            text("SELECT * FROM student WHERE id = :id"),  # FIXED
+            {"id": id}  # FIXED
+        ).fetchone()
+
         return render_template('edit.html', student=student)
 
-# if __name__ == '__main__':
-#     with app.app_context():
-#         db.create_all()
-#     app.run(debug=True)
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=5000, debug=True)
-
